@@ -70,6 +70,38 @@ class Employee:
         """
         CURSOR.execute(sql)
         CONN.commit()
+    
+
+    @classmethod
+    def instance_from_db(cls, row):
+        """Return a Review instance having the attribute values from the table row."""
+        review_id = row[0]
+
+        # Check if instance is already cached
+        review = cls.all.get(review_id)
+        if review:
+            # Update attributes in case the cached object was changed locally
+            review.year = row[1]
+            review.summary = row[2]
+            review.employee_id = row[3]
+        else:
+            # Create a new instance and cache it
+            review = cls(row[1], row[2], row[3], id=review_id)
+            cls.all[review_id] = review
+
+        return review
+    
+
+    @classmethod
+    def find_by_id(cls, id):
+        """Return a Review instance corresponding to the row in the reviews table with the given id."""
+        sql = "SELECT * FROM reviews WHERE id = ?"
+        row = CURSOR.execute(sql, (id,)).fetchone()
+        if row:
+            return cls.instance_from_db(row)
+        else:
+            return None
+
 
     @classmethod
     def drop_table(cls):
@@ -187,4 +219,13 @@ class Employee:
 
     def reviews(self):
         """Return list of reviews associated with current employee"""
-        pass
+        from review import Review  
+    
+        sql = """
+            SELECT * FROM reviews WHERE employee_id = ?
+        """
+        CURSOR.execute(sql, (self.id,))
+        rows = CURSOR.fetchall()
+    
+        # Convert each row into a Review instance (using cache or new instance)
+        return [Review.instance_from_db(row) for row in rows]
